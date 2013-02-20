@@ -2,6 +2,7 @@ AutobahnPython
 ==============
 
 AutobahnPython implements **[The WebSocket Protocol](http://tools.ietf.org/html/rfc6455)** and **[The WebSocket Application Messaging Protocol (WAMP)](http://wamp.ws/)**:
+This form is optimised for faster masks and vaidators using acython and numpy for use with the **[The RoboEarth Cloud Engine](http://www.roboearth.org)**
 
 * framework for WebSocket and WAMP clients and servers
 * implements WebSocket RFC6455, Draft Hybi-10+, Hixie-76 and WAMP v1
@@ -22,7 +23,7 @@ Dependencies
 ------------
 
 AutobahnPython is designed to work with [Python](http://www.python.org/) (latest versions of 2.6 or 2.7) and [PyPy](http://pypy.org/) (1.9 or later).
-The only dependency is [Twisted](http://twistedmatrix.com) (11.1 or later).
+Depends on [Numpy](http://www.numpy.org) , [Cython](http://www.cython.org) [Twisted](http://twistedmatrix.com) (11.1 or later) 
 
 Where to go
 -----------

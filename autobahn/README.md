@@ -1,7 +1,7 @@
 AutobahnPython Package
 ======================
 
-This folder contains the AutobahnPython package.
+This folder contains the AutobahnPython package optimised for the Roboearth Cloud Engine.
 
 To install, do
 

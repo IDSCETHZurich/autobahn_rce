@@ -92,7 +92,7 @@ ext_modules = [
     Extension('autobahn.utf8validator', ['autobahn/utf8validator.c']),
     ]
 setup (
-   name = 'autobahn',
+   name = 'autobahn_rce',
    version = verstr,
    description = 'AutobahnPython - Optimised and modified for the RoboEarth Cloud Engine.',
    long_description = LONGSDESC,
@@ -101,7 +101,7 @@ setup (
    author_email = 'dhananjaysathe@gmail.com',
    url = 'https://github.com/dhananjaysathe/AutobahnPython',
    platforms = ('Any'),
-   install_requires = ['setuptools', 'Twisted>=11.1', 'numpy'],
+   install_requires = ['setuptools', 'Twisted>=11.1', 'numpy', 'cython'],
    packages = ['autobahn'],
    cmdclass={'build_ext': BuildExt, 'sdist': Sdist},
    ext_modules=ext_modules,
