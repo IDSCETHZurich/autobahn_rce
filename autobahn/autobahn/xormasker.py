@@ -16,8 +16,8 @@
 ##
 ###############################################################################
 
+import numpy
 from array import array
-
 
 class XorMaskerNull:
 
@@ -34,13 +34,12 @@ class XorMaskerNull:
       self.ptr += len(data)
       return data
 
-
 class XorMaskerSimple:
 
    def __init__(self, mask):
       assert len(mask) == 4
       self.ptr = 0
-      self.msk = array('B', mask)
+      self.mask = mask
 
    def pointer(self):
       return self.ptr
@@ -50,11 +49,18 @@ class XorMaskerSimple:
 
    def process(self, data):
       dlen = len(data)
-      payload = array('B', data)
-      for k in xrange(dlen):
-         payload[k] ^= self.msk[self.ptr & 3]
-         self.ptr += 1
-      return payload.tostring()
+      offset = self.ptr & 3
+      mask = (self.mask*(dlen/4 + 2))[offset:dlen+offset]
+      for i in (8,4,2,1):
+        if not dlen % i: break
+      print i
+      if i == 8: dt = numpy.dtype('uint64');
+      elif i == 4: dt = numpy.dtype('uint32');
+      elif i == 2: dt = numpy.dtype('uint16');
+      else: dt = numpy.dtype('B');
+      self.ptr += dlen
+
+      return numpy.bitwise_xor(numpy.frombuffer(mask, dtype=dt), numpy.frombuffer(data, dtype=dt)).tostring()
 
 
 class XorMaskerShifted1:
@@ -77,9 +83,16 @@ class XorMaskerShifted1:
 
    def process(self, data):
       dlen = len(data)
-      payload = array('B', data)
-      msk = self.mskarray[self.ptr & 3]
-      for k in xrange(dlen):
-         payload[k] ^= msk[k & 3]
+      mask = self.mskarray[self.ptr & 3]
+      print mask
+      mask = (mask*(dlen/4 + 2))[:dlen]
+      for i in (8,4,2,1):
+        if not dlen % i: break
+      print i
+      if i == 8: dt = numpy.dtype('uint64');
+      elif i == 4: dt = numpy.dtype('uint32');
+      elif i == 2: dt = numpy.dtype('uint16');
+      else: dt = numpy.dtype('B');
       self.ptr += dlen
-      return payload.tostring()
+
+      return numpy.bitwise_xor(numpy.frombuffer(mask, dtype=dt), numpy.frombuffer(data, dtype=dt)).tostring()
