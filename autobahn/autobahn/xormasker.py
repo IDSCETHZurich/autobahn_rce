@@ -53,7 +53,6 @@ class XorMaskerSimple:
       mask = (self.mask*(dlen/4 + 2))[offset:dlen+offset]
       for i in (8,4,2,1):
         if not dlen % i: break
-      print i
       if i == 8: dt = numpy.dtype('uint64');
       elif i == 4: dt = numpy.dtype('uint32');
       elif i == 2: dt = numpy.dtype('uint16');
@@ -84,11 +83,9 @@ class XorMaskerShifted1:
    def process(self, data):
       dlen = len(data)
       mask = self.mskarray[self.ptr & 3]
-      print mask
       mask = (mask*(dlen/4 + 2))[:dlen]
       for i in (8,4,2,1):
         if not dlen % i: break
-      print i
       if i == 8: dt = numpy.dtype('uint64');
       elif i == 4: dt = numpy.dtype('uint32');
       elif i == 2: dt = numpy.dtype('uint16');
