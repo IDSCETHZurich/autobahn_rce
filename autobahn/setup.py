@@ -15,14 +15,21 @@
 ##  limitations under the License.
 ##
 ###############################################################################
+import os
+import sys
+import subprocess
 
-from setuptools import setup
+from setuptools import setup, Extension
+from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 LONGSDESC = """
 Twisted-based WebSocket/WAMP client and server framework.
+Optimised with routies for faster numpy based masks and deferrd support for the RoboEarth Cloud Engine
 
 AutobahnPython provides a WebSocket (RFC6455, Hybi-10 to -17, Hixie-76)
-framework for creating WebSocket-based clients and servers.
+framework for creating WebSocket-based clients and servers. 
+Optimised with routies for faster numpy based masks and deferrd api. 
 
 AutobahnPython also includes an implementation of WAMP
 (The WebSockets Application Messaging Protocol), a light-weight,
@@ -32,10 +39,11 @@ More information:
 
    * http://autobahn.ws/python
    * http://wamp.ws
+   * http//www.roboearth.org
 
 Source Code:
 
-   * https://github.com/tavendo/AutobahnPython
+   * https://github.com/dhananjaysathe/AutobahnPython
 """
 
 ## get version string from "autobahn/_version.py"
@@ -51,22 +59,53 @@ if mo:
 else:
    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
+class NoCython(Exception):
+    pass
 
+def cythonize(src):
+    sys.stderr.write("cythonize: %r\n" % (src,))
+    subprocess.check_call("cython '%s'" % (src,), shell=True)
+
+def ensure_source(src):
+    pyx = os.path.splitext(src)[0] + '.pyx'
+    if not os.path.exists(src) \
+       or os.stat(src).st_mtime < os.stat(pyx).st_mtime:
+        cythonize(pyx)
+    return src
+
+class BuildExt(build_ext):
+    def build_extension(self, ext):
+        try:
+            ext.sources = list(map(ensure_source, ext.sources))
+        except NoCython:
+            print("Cython is required for building extension from checkout.")
+            print("Install Cython >= 0.16 ")
+            raise
+        return build_ext.build_extension(self, ext)
+
+class Sdist(sdist):
+    def __init__(self, *args, **kwargs):
+        cythonize('autobahn/utf8validator.pyx')
+        sdist.__init__(self, *args, **kwargs)
+
+ext_modules = [
+    Extension('autobahn.utf8validator', ['autobahn/utf8validator.c']),
+    ]
 setup (
    name = 'autobahn',
    version = verstr,
-   description = 'AutobahnPython - WebSocket/WAMP implementation for Python/Twisted.',
+   description = 'AutobahnPython - Optimised and modified for the RoboEarth Cloud Engine.',
    long_description = LONGSDESC,
    license = 'Apache License 2.0',
-   author = 'Tavendo GmbH',
-   author_email = 'autobahnws@googlegroups.com',
-   url = 'http://autobahn.ws/python',
+   author = 'Dhananjay Sathe',
+   author_email = 'dhananjaysathe@gmail.com',
+   url = 'https://github.com/dhananjaysathe/AutobahnPython',
    platforms = ('Any'),
-   install_requires = ['setuptools', 'Twisted>=11.1'],
+   install_requires = ['setuptools', 'Twisted>=11.1', 'numpy'],
    packages = ['autobahn'],
+   cmdclass={'build_ext': BuildExt, 'sdist': Sdist},
+   ext_modules=ext_modules,
    zip_safe = False,
-   ## http://pypi.python.org/pypi?%3Aaction=list_classifiers
-   ##
    classifiers = ["License :: OSI Approved :: Apache Software License",
                   "Development Status :: 5 - Production/Stable",
                   "Environment :: Console",
@@ -76,5 +115,5 @@ setup (
                   "Programming Language :: Python",
                   "Topic :: Internet",
                   "Topic :: Software Development :: Libraries"],
-   keywords = 'autobahn autobahn.ws websocket realtime rfc6455 wamp rpc pubsub'
+   keywords = 'autobahn rapyuta autobahn.ws websocket realtime rfc6455 wamp rpc pubsub'
 )
