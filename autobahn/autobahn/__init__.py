@@ -1,6 +1,6 @@
 ###############################################################################
 ##
-##  Copyright 2011-2013 Tavendo GmbH
+##  Copyright 2011,2012 Tavendo GmbH
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
 ##  you may not use this file except in compliance with the License.
@@ -16,8 +16,12 @@
 ##
 ###############################################################################
 
-from _version import __version__
-version = __version__ # backward compat.
+try:
+   import pkg_resources
+   version = pkg_resources.require("Autobahn")[0].version
+except:
+   ## i.e. no setuptools or no package installed ..
+   version = "?.?.?"
 
 import util
 import useragent
