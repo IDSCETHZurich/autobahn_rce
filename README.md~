@@ -2,7 +2,7 @@ AutobahnPython
 ==============
 
 AutobahnPython implements **[The WebSocket Protocol](http://tools.ietf.org/html/rfc6455)** and **[The WebSocket Application Messaging Protocol (WAMP)](http://wamp.ws/)**:
-This form is optimised for faster masks and vaidators using C extensions and deferreds for use with the **[The RoboEarth Cloud Engine](http://www.roboearth.org)**
+This form is optimised for faster masks and vaidators using C extensions for use with the **[The RoboEarth Cloud Engine](http://www.roboearth.org)**
 
 * framework for WebSocket and WAMP clients and servers
 * implements WebSocket RFC6455, Draft Hybi-10+, Hixie-76 and WAMP v1

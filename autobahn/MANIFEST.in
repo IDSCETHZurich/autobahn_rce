@@ -1,2 +1,0 @@
-include autobahn/dfa.h
-include autobahn/utf8validator.pyx

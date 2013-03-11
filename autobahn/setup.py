@@ -1,50 +1,28 @@
-###############################################################################
-##
-##  Copyright 2011-2013 Tavendo GmbH
-##
-##  Licensed under the Apache License, Version 2.0 (the "License");
-##  you may not use this file except in compliance with the License.
-##  You may obtain a copy of the License at
-##
-##      http://www.apache.org/licenses/LICENSE-2.0
-##
-##  Unless required by applicable law or agreed to in writing, software
-##  distributed under the License is distributed on an "AS IS" BASIS,
-##  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-##  See the License for the specific language governing permissions and
-##  limitations under the License.
-##
-###############################################################################
-import os
-import sys
-import subprocess
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  setup.py
+#  
+#  Copyright 2013 dominiquehunziker <dominique.hunziker@gmail.com>
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
 
 from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
-from setuptools.command.sdist import sdist
 
-LONGSDESC = """
-Twisted-based WebSocket/WAMP client and server framework.
-Optimised with routies for faster numpy based masks and deferrd support for the RoboEarth Cloud Engine
-
-AutobahnPython provides a WebSocket (RFC6455, Hybi-10 to -17, Hixie-76)
-framework for creating WebSocket-based clients and servers. 
-Optimised with routies for faster numpy based masks and deferrd api. 
-
-AutobahnPython also includes an implementation of WAMP
-(The WebSockets Application Messaging Protocol), a light-weight,
-asynchronous RPC/PubSub over JSON/WebSocket protocol.
-
-More information:
-
-   * http://autobahn.ws/python
-   * http://wamp.ws
-   * http//www.roboearth.org
-
-Source Code:
-
-   * https://github.com/dhananjaysathe/AutobahnPython
-"""
+LONGSDESC = 'blub blub'
 
 ## get version string from "autobahn/_version.py"
 ## See: http://stackoverflow.com/a/7071358/884770
@@ -59,38 +37,11 @@ if mo:
 else:
    raise RuntimeError("Unable to find version string in %s." % (VERSIONFILE,))
 
-class NoCython(Exception):
-    pass
-
-def cythonize(src):
-    sys.stderr.write("cythonize: %r\n" % (src,))
-    subprocess.check_call("cython '%s'" % (src,), shell=True)
-
-def ensure_source(src):
-    pyx = os.path.splitext(src)[0] + '.pyx'
-    if not os.path.exists(src) \
-       or os.stat(src).st_mtime < os.stat(pyx).st_mtime:
-        cythonize(pyx)
-    return src
-
-class BuildExt(build_ext):
-    def build_extension(self, ext):
-        try:
-            ext.sources = list(map(ensure_source, ext.sources))
-        except NoCython:
-            print("Cython is required for building extension from checkout.")
-            print("Install Cython >= 0.16 ")
-            raise
-        return build_ext.build_extension(self, ext)
-
-class Sdist(sdist):
-    def __init__(self, *args, **kwargs):
-        cythonize('autobahn/utf8validator.pyx')
-        sdist.__init__(self, *args, **kwargs)
-
 ext_modules = [
-    Extension('autobahn.utf8validator', ['autobahn/utf8validator.c']),
+    Extension('autobahn.utf8validator', ['src/utf8validator.c']),
+    Extension('autobahn.xormasker', ['src/xormasker.c']),
     ]
+
 setup (
    name = 'autobahn_rce',
    version = verstr,
@@ -101,9 +52,8 @@ setup (
    author_email = 'dhananjaysathe@gmail.com',
    url = 'https://github.com/dhananjaysathe/AutobahnPython',
    platforms = ('Any'),
-   install_requires = ['setuptools', 'Twisted>=11.1', 'numpy', 'cython'],
+   install_requires = ['setuptools', 'Twisted>=11.1'],
    packages = ['autobahn'],
-   cmdclass={'build_ext': BuildExt, 'sdist': Sdist},
    ext_modules=ext_modules,
    zip_safe = False,
    classifiers = ["License :: OSI Approved :: Apache Software License",
