@@ -1,7 +1,7 @@
 /*
  * utf8validator.c
  * 
- * Copyright 2013 dominiquehunziker <dominique.hunziker@gmail.com>
+ * Copyright 2013 Dominique Hunziker <dominique.hunziker@gmail.com>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -102,8 +102,7 @@ static PyObject* Utf8Validator_reset(Utf8Validator *self, PyObject *args)
     /* Reset the validator */
     reset(self);
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 // Utf8Validator - validate

@@ -1,7 +1,7 @@
 /*
  * xormasker.c
  * 
- * Copyright 2013 dominiquehunziker <dominique.hunziker@gmail.com>
+ * Copyright 2013 Dominique Hunziker <dominique.hunziker@gmail.com>
  * 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,14 +38,6 @@ typedef struct
     int ptr;
     uint8_t mask[4];
 } XorMaskerSimple;
-
-// XorMaskerShifted1 type struct
-typedef struct
-{
-    PyObject_HEAD
-    int ptr;
-    uint8_t mask[4][4];
-} XorMaskerShifted1;
 
 // XorMaskerNull - tp_init
 static int XorMaskerNull_tp_init(XorMaskerNull *self, PyObject *args, PyObject *kwargs)
@@ -102,40 +94,6 @@ static int XorMaskerSimple_tp_init(XorMaskerSimple *self, PyObject *args, PyObje
     return 0;
 }
 
-// XorMaskerShifted1 - tp_init
-static int XorMaskerShifted1_tp_init(XorMaskerShifted1 *self, PyObject *args, PyObject *kwargs)
-{
-    /* Declarations */
-    int i;
-    char *mask;
-    Py_ssize_t mask_size;
-    
-    /* Extract the argument */
-    if (!PyArg_ParseTuple(args, "s#:__init__", &mask, &mask_size))
-        return -1;
-    
-    /* Verify the argument */
-    if ((int) mask_size != 4)
-    {
-        PyErr_SetString(PyExc_TypeError, "Mask has to be of length 4.");
-        return -1;
-    }
-    
-    /* Parse the mask */
-    for (i = 0; i < 4; ++i)
-    {
-        self->mask[0][i] = mask[i];
-        self->mask[1][i] = mask[(i+1) & 3]; // == (i+1) % 4
-        self->mask[2][i] = mask[(i+2) & 3]; // == (i+2) % 4
-        self->mask[3][i] = mask[(i+3) & 3]; // == (i+3) % 4
-    }
-    
-    /* Initialize the xor masker */
-    self->ptr = 0;
-    
-    return 0;
-}
-
 // XorMaskerNull - tp_dealloc
 static void XorMaskerNull_tp_dealloc(XorMaskerNull *self)
 {
@@ -144,12 +102,6 @@ static void XorMaskerNull_tp_dealloc(XorMaskerNull *self)
 
 // XorMaskerSimple - tp_dealloc
 static void XorMaskerSimple_tp_dealloc(XorMaskerSimple *self)
-{
-    self->ob_type->tp_free((PyObject*)self);
-}
-
-// XorMaskerShifted1 - tp_dealloc
-static void XorMaskerShifted1_tp_dealloc(XorMaskerShifted1 *self)
 {
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -182,20 +134,6 @@ static PyObject* XorMaskerSimple_pointer(XorMaskerSimple *self, PyObject *args)
     return Py_BuildValue("i", self->ptr);
 }
 
-// XorMaskerShifted1 - pointer
-static PyObject* XorMaskerShifted1_pointer(XorMaskerShifted1 *self, PyObject *args)
-{
-    if (PyTuple_GET_SIZE(args))
-    {
-        PyErr_Format(PyExc_TypeError,
-                     "XorMaskerShifted1.pointer() takes no parameters (%d given)",
-                     (int) PyTuple_GET_SIZE(args));
-        return NULL;
-    }
-    
-    return Py_BuildValue("i", self->ptr);
-}
-
 // XorMaskerNull - reset
 static PyObject* XorMaskerNull_reset(XorMaskerNull *self, PyObject *args)
 {
@@ -209,8 +147,7 @@ static PyObject* XorMaskerNull_reset(XorMaskerNull *self, PyObject *args)
     
     self->ptr = 0;
     
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 // XorMaskerSimple - reset
@@ -226,25 +163,7 @@ static PyObject* XorMaskerSimple_reset(XorMaskerSimple *self, PyObject *args)
     
     self->ptr = 0;
     
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-// XorMaskerShifted1 - reset
-static PyObject* XorMaskerShifted1_reset(XorMaskerShifted1 *self, PyObject *args)
-{
-    if (PyTuple_GET_SIZE(args))
-    {
-        PyErr_Format(PyExc_TypeError,
-                     "XorMaskerShifted1.reset() takes no parameters (%d given)",
-                     (int) PyTuple_GET_SIZE(args));
-        return NULL;
-    }
-    
-    self->ptr = 0;
-    
-    Py_INCREF(Py_None);
-    return Py_None;
+    Py_RETURN_NONE;
 }
 
 // XorMaskerNull - process
@@ -309,45 +228,6 @@ static PyObject* XorMaskerSimple_process(XorMaskerSimple *self, PyObject *args)
     return Py_BuildValue("O", py_data_out);
 }
 
-// XorMaskerShifted1 - process
-static PyObject* XorMaskerShifted1_process(XorMaskerShifted1 *self, PyObject *args)
-{
-    /* Declarations */
-    int i;
-    Py_ssize_t data_size;
-    char *data_in;
-    char *data_out;
-    PyObject *py_data_out;
-    
-    /* Local references for instance variables */
-    const uint8_t* const mask = self->mask[self->ptr & 3]; // == ptr % 4
-    
-    /* Extract the argument */
-    if (!PyArg_ParseTuple(args, "s#:process", &data_in, &data_size))
-        return NULL;
-    
-    /* Prepare container for return value */
-    py_data_out = PyString_FromStringAndSize(NULL, (int) data_size);
-    if (!py_data_out)
-    {
-        PyErr_SetString(XorMaskerException, "Could not allocate output string.");
-        return NULL;
-    }
-    
-    data_out = PyString_AsString(py_data_out);
-    if (!data_out)
-        return NULL;
-    
-    /* Process the data */
-    for (i = 0; i < (int) data_size; ++i)
-        data_out[i] = data_in[i] ^ mask[i & 3]; // == ptr++ % 4
-    
-    /* Update the instance variables */
-    self->ptr += data_size;
-    
-    return Py_BuildValue("O", py_data_out);
-}
-
 static PyMethodDef XorMaskerNull_methods[] =
 {
     {"pointer", (PyCFunction) XorMaskerNull_pointer, METH_VARARGS,
@@ -366,17 +246,6 @@ static PyMethodDef XorMaskerSimple_methods[] =
     {"reset", (PyCFunction) XorMaskerSimple_reset, METH_VARARGS,
     "Reset the mask pointer."},
     {"process", (PyCFunction) XorMaskerSimple_process, METH_VARARGS,
-    "Process the data by applying the bit mask."},
-    {NULL}
-};
-
-static PyMethodDef XorMaskerShifted1_methods[] =
-{
-    {"pointer", (PyCFunction) XorMaskerShifted1_pointer, METH_VARARGS,
-    "Get the current count of the mask pointer."},
-    {"reset", (PyCFunction) XorMaskerShifted1_reset, METH_VARARGS,
-    "Reset the mask pointer."},
-    {"process", (PyCFunction) XorMaskerShifted1_process, METH_VARARGS,
     "Process the data by applying the bit mask."},
     {NULL}
 };
@@ -467,75 +336,24 @@ static PyTypeObject XorMaskerSimpleType =
     0,                                                  /* tp_new */
 };
 
-static PyTypeObject XorMaskerShifted1Type =
-{
-    PyObject_HEAD_INIT(NULL)
-    0,                                                  /* ob_size */
-    "autobahn.xormasker.XorMaskerShifted1",             /* tp_name */
-    sizeof(XorMaskerShifted1),                          /* tp_basicsize */
-    0,                                                  /* tp_itemsize */
-    (destructor) XorMaskerShifted1_tp_dealloc,          /* tp_dealloc */
-    0,                                                  /* tp_print */
-    0,                                                  /* tp_getattr */
-    0,                                                  /* tp_setattr */
-    0,                                                  /* tp_compare */
-    0,                                                  /* tp_repr */
-    0,                                                  /* tp_as_number */
-    0,                                                  /* tp_as_sequence */
-    0,                                                  /* tp_as_mapping */
-    0,                                                  /* tp_hash */
-    0,                                                  /* tp_call */
-    0,                                                  /* tp_str */
-    0,                                                  /* tp_getattro */
-    0,                                                  /* tp_setattro */
-    0,                                                  /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,           /* tp_flags*/
-    "XorMasker",                                        /* tp_doc */
-    0,                                                  /* tp_traverse */
-    0,                                                  /* tp_clear */
-    0,                                                  /* tp_richcompare */
-    0,                                                  /* tp_weaklistoffset */
-    0,                                                  /* tp_iter */
-    0,                                                  /* tp_iternext */
-    XorMaskerShifted1_methods,                          /* tp_methods */
-    0,                                                  /* tp_members */
-    0,                                                  /* tp_getset */
-    0,                                                  /* tp_base */
-    0,                                                  /* tp_dict */
-    0,                                                  /* tp_descr_get */
-    0,                                                  /* tp_descr_set */
-    0,                                                  /* tp_dictoffset */
-    (initproc) XorMaskerShifted1_tp_init,               /* tp_init */
-    0,                                                  /* tp_alloc */
-    0,                                                  /* tp_new */
-};
-
 // module method createXorMasker
 static PyObject* createXorMasker(PyObject *module, PyObject *args)
 {
     /* Declarations */
     int len;
     PyObject *mask;
-    PyObject *xormasker;
     
     /* Extract the arguments */
     if (!PyArg_ParseTuple(args, "O|i", &mask, &len))
         return NULL;
     
-    printf("len %i\n", len);
-    
-    if (len < 128)
-        xormasker = (PyObject*) PyObject_New(XorMaskerSimple, &XorMaskerSimpleType);
-    else
-        xormasker = (PyObject*) PyObject_New(XorMaskerShifted1, &XorMaskerShifted1Type);
-    
-    return xormasker;
+    return PyObject_CallFunctionObjArgs((PyObject *) &XorMaskerSimpleType, mask, NULL);
 }
 
 static PyMethodDef utf8validator_methods[] =
 {
     {"createXorMasker", createXorMasker, METH_VARARGS,
-    "Create a new xormasker using provided mask (based on len)."},
+    "Create a new xormasker using provided mask."},
     {NULL}
 };
 
@@ -586,17 +404,4 @@ PyMODINIT_FUNC initxormasker(void)
     /* Add the type XorMaskerSimpleType to the module */
     Py_INCREF(&XorMaskerSimpleType);
     PyModule_AddObject(module, "XorMaskerSimple", (PyObject*) &XorMaskerSimpleType);
-    
-    /* Fill in missing slots in type XorMaskerShifted1Type */
-    XorMaskerShifted1Type.tp_new = PyType_GenericNew;
-    
-    if (PyType_Ready(&XorMaskerShifted1Type) < 0)
-    {
-        // TODO: Add some error message
-        return;
-    }
-    
-    /* Add the type XorMaskerShifted1Type to the module */
-    Py_INCREF(&XorMaskerShifted1Type);
-    PyModule_AddObject(module, "XorMaskerShifted1", (PyObject*) &XorMaskerShifted1Type);
 }
