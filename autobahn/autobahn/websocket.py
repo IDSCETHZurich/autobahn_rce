@@ -44,7 +44,7 @@ from twisted.python import log
 
 from _version import __version__
 from utf8validator import Utf8Validator
-from xormasker import XorMaskerNull, XorMaskerSimple, XorMaskerShifted1
+from xormasker import XorMaskerNull, createXorMasker
 from httpstatus import *
 from util import Stopwatch
 
@@ -452,10 +452,6 @@ class WebSocketProtocol(protocol.Protocol):
 
    QUEUED_WRITE_DELAY = 0.00001
    """For synched/chopped writes, this is the reactor reentry delay in seconds."""
-
-   PAYLOAD_LEN_XOR_BREAKEVEN = 128
-   """Tuning parameter which chooses XORer used for masking/unmasking based on
-   payload length."""
 
    MESSAGE_TYPE_TEXT = 1
    """WebSockets text message type (UTF-8 payload)."""
@@ -1378,7 +1374,6 @@ class WebSocketProtocol(protocol.Protocol):
       Modes: Hybi, Hixie
       """
       if self.websocket_version == 0:
-         key = key1, key2, key3
          self.sendData(preparedMsg.payloadHixie)
       else:
          self.sendData(preparedMsg.payloadHybi)
@@ -1620,10 +1615,7 @@ class WebSocketProtocol(protocol.Protocol):
                   i += 4
 
                if frame_masked and frame_payload_len > 0 and self.applyMask:
-                  if frame_payload_len < WebSocketProtocol.PAYLOAD_LEN_XOR_BREAKEVEN:
-                     self.current_frame_masker = XorMaskerSimple(frame_mask)
-                  else:
-                     self.current_frame_masker = XorMaskerShifted1(frame_mask)
+                  self.current_frame_masker = createXorMasker(frame_mask, frame_payload_len)
                else:
                   self.current_frame_masker = XorMaskerNull()
 
@@ -1859,10 +1851,7 @@ class WebSocketProtocol(protocol.Protocol):
          ## mask frame payload
          ##
          if l > 0 and self.applyMask:
-            if l < WebSocketProtocol.PAYLOAD_LEN_XOR_BREAKEVEN:
-               masker = XorMaskerSimple(mask)
-            else:
-               masker = XorMaskerShifted1(mask)
+            masker = createXorMasker(mask, l)
             plm = masker.process(pl)
          else:
             plm = pl
@@ -2112,10 +2101,7 @@ class WebSocketProtocol(protocol.Protocol):
       ## payload masker
       ##
       if self.send_message_frame_mask and length > 0 and self.applyMask:
-         if length < WebSocketProtocol.PAYLOAD_LEN_XOR_BREAKEVEN:
-            self.send_message_frame_masker = XorMaskerSimple(self.send_message_frame_mask)
-         else:
-            self.send_message_frame_masker = XorMaskerShifted1(self.send_message_frame_mask)
+         self.send_message_frame_masker = createXorMasker(self.send_message_frame_mask, length)
       else:
          self.send_message_frame_masker = XorMaskerNull()
 
@@ -2394,10 +2380,8 @@ class PreparedMessage:
          mask = struct.pack("!I", random.getrandbits(32))
          if l == 0:
             plm = payload
-         elif l < WebSocketProtocol.PAYLOAD_LEN_XOR_BREAKEVEN:
-            plm = XorMaskerSimple(mask).process(payload)
          else:
-            plm = XorMaskerShifted1(mask).process(payload)
+            plm = createXorMasker(mask, l).process(payload)
       else:
          b1 = 0
          mask = ""
@@ -2777,6 +2761,8 @@ class WebSocketServerProtocol(WebSocketProtocol):
             self.data = self.data[end_of_header + 4:]
 
          ## WebSocket handshake validated => produce opening handshake response
+         if self.websocket_version == 0:
+            key = key1, key2, key3
 
          ## Now fire onConnect() on derived class, to give that class a chance to accept or deny
          ## the connection. onConnect() may throw, in which case the connection is denied, or it
@@ -2803,121 +2789,129 @@ class WebSocketServerProtocol(WebSocketProtocol):
          self.pendingOnConnect = True
 
    def _processHandshake_buildResponse(self, protocol, key):
-      """
-      """
-      self.pendingOnConnect = False
+         """
+         Callback for Deferred returned by self.onConnect.
+         Generates the response for the handshake.
+         """
+         self.pendingOnConnect = False
 
-      if protocol is not None and not (protocol in self.websocket_protocols):
-         raise Exception("protocol accepted must be from the list client sent or None")
+         if protocol is not None and not (protocol in self.websocket_protocols):
+            raise Exception("protocol accepted must be from the list client sent or None")
 
-      self.websocket_protocol_in_use = protocol
+         self.websocket_protocol_in_use = protocol
 
-      if self.websocket_version == 0:
+         if self.websocket_version == 0:
             key1, key2, key3 = key
 
-      ## build response to complete WebSocket handshake
-      ##
-      response  = "HTTP/1.1 %d Switching Protocols\x0d\x0a" % HTTP_STATUS_CODE_SWITCHING_PROTOCOLS[0]
-
-      if self.factory.server is not None and self.factory.server != "":
-         response += "Server: %s\x0d\x0a" % self.factory.server.encode("utf-8")
-
-      response += "Upgrade: WebSocket\x0d\x0a"
-      response += "Connection: Upgrade\x0d\x0a"
-
-      if self.websocket_protocol_in_use is not None:
-         response += "Sec-WebSocket-Protocol: %s\x0d\x0a" % str(self.websocket_protocol_in_use)
-
-      if self.websocket_version == 0:
-         if self.websocket_origin:
-            ## browser client provide the header, and expect it to be echo'ed
-            response += "Sec-WebSocket-Origin: %s\x0d\x0a" % str(self.websocket_origin)
-
-         if self.debugCodePaths:
-            log.msg('factory isSecure = %s port = %s' % (self.factory.isSecure, self.factory.externalPort))
-
-         if (self.factory.isSecure and self.factory.externalPort != 443) or ((not self.factory.isSecure) and self.factory.externalPort != 80):
-            if self.debugCodePaths:
-               log.msg('factory running on non-default port')
-            response_port = ':' + str(self.factory.externalPort)
-         else:
-            if self.debugCodePaths:
-               log.msg('factory running on default port')
-            response_port = ''
-
-         ## FIXME: check this! But see below ..
-         if False:
-            response_host = str(self.factory.host)
-            response_path = str(self.factory.path)
-         else:
-            response_host = str(self.http_request_host)
-            response_path = str(self.http_request_uri)
-
-         location = "%s://%s%s%s" % ('wss' if self.factory.isSecure else 'ws', response_host, response_port, response_path)
-
-         # Safari is very picky about this one
-         response += "Sec-WebSocket-Location: %s\x0d\x0a" % location
-
-         ## end of HTTP response headers
-         response += "\x0d\x0a"
-
-         ## compute accept body
+         ## build response to complete WebSocket handshake
          ##
-         accept_val = struct.pack(">II", key1, key2) + key3
-         accept = hashlib.md5(accept_val).digest()
-         response_body = str(accept)
-      else:
-         ## compute Sec-WebSocket-Accept
+         response  = "HTTP/1.1 %d Switching Protocols\x0d\x0a" % HTTP_STATUS_CODE_SWITCHING_PROTOCOLS[0]
+
+         if self.factory.server is not None and self.factory.server != "":
+            response += "Server: %s\x0d\x0a" % self.factory.server.encode("utf-8")
+
+         response += "Upgrade: WebSocket\x0d\x0a"
+         response += "Connection: Upgrade\x0d\x0a"
+
+         if self.websocket_protocol_in_use is not None:
+            response += "Sec-WebSocket-Protocol: %s\x0d\x0a" % str(self.websocket_protocol_in_use)
+
+         if self.websocket_version == 0:
+          
+            if self.websocket_origin:
+               ## browser client provide the header, and expect it to be echo'ed
+               response += "Sec-WebSocket-Origin: %s\x0d\x0a" % str(self.websocket_origin)
+
+            if self.debugCodePaths:
+               log.msg('factory isSecure = %s port = %s' % (self.factory.isSecure, self.factory.externalPort))
+
+            if (self.factory.isSecure and self.factory.externalPort != 443) or ((not self.factory.isSecure) and self.factory.externalPort != 80):
+               if self.debugCodePaths:
+                  log.msg('factory running on non-default port')
+               response_port = ':' + str(self.factory.externalPort)
+            else:
+               if self.debugCodePaths:
+                  log.msg('factory running on default port')
+               response_port = ''
+
+            ## FIXME: check this! But see below ..
+            if False:
+               response_host = str(self.factory.host)
+               response_path = str(self.factory.path)
+            else:
+               response_host = str(self.http_request_host)
+               response_path = str(self.http_request_uri)
+
+            location = "%s://%s%s%s" % ('wss' if self.factory.isSecure else 'ws', response_host, response_port, response_path)
+
+            # Safari is very picky about this one
+            response += "Sec-WebSocket-Location: %s\x0d\x0a" % location
+
+            ## end of HTTP response headers
+            response += "\x0d\x0a"
+
+            ## compute accept body
+            ##
+            accept_val = struct.pack(">II", key1, key2) + key3
+            accept = hashlib.md5(accept_val).digest()
+            response_body = str(accept)
+         else:
+            ## compute Sec-WebSocket-Accept
+            ##
+            sha1 = hashlib.sha1()
+            sha1.update(key + WebSocketProtocol.WS_MAGIC)
+            sec_websocket_accept = base64.b64encode(sha1.digest())
+
+            response += "Sec-WebSocket-Accept: %s\x0d\x0a" % sec_websocket_accept
+
+            if len(self.websocket_extensions_in_use) > 0:
+               response += "Sec-WebSocket-Extensions: %s\x0d\x0a" % ','.join(self.websocket_extensions_in_use)
+
+            ## end of HTTP response headers
+            response += "\x0d\x0a"
+            response_body = ''
+
+         if self.debug:
+            log.msg("sending HTTP response:\n\n%s%s\n\n" % (response, binascii.b2a_hex(response_body)))
+
+         ## save and send out opening HS data
          ##
-         sha1 = hashlib.sha1()
-         sha1.update(key + WebSocketProtocol.WS_MAGIC)
-         sec_websocket_accept = base64.b64encode(sha1.digest())
+         self.http_response_data = response + response_body
+         self.sendData(self.http_response_data)
 
-         response += "Sec-WebSocket-Accept: %s\x0d\x0a" % sec_websocket_accept
+         ## opening handshake completed, move WebSockets connection into OPEN state
+         ##
+         self.state = WebSocketProtocol.STATE_OPEN
 
-         if len(self.websocket_extensions_in_use) > 0:
-            response += "Sec-WebSocket-Extensions: %s\x0d\x0a" % ','.join(self.websocket_extensions_in_use)
+         ## cancel any opening HS timer if present
+         ##
+         if self.openHandshakeTimeoutCall is not None:
+            if self.debugCodePaths:
+               log.msg("openHandshakeTimeoutCall.cancel")
+            self.openHandshakeTimeoutCall.cancel()
+            self.openHandshakeTimeoutCall = None
 
-         ## end of HTTP response headers
-         response += "\x0d\x0a"
-         response_body = ''
+         ## init state
+         ##
+         self.inside_message = False
+         if self.websocket_version != 0:
+            self.current_frame = None
 
-      if self.debug:
-         log.msg("sending HTTP response:\n\n%s%s\n\n" % (response, binascii.b2a_hex(response_body)))
+         ## fire handler on derived class
+         ##
+         if self.trackedTimings:
+            self.trackedTimings.track("onOpen")
+         self.onOpen()
 
-      ## save and send out opening HS data
-      ##
-      self.http_response_data = response + response_body
-      self.sendData(self.http_response_data)
-
-      ## opening handshake completed, move WebSockets connection into OPEN state
-      ##
-      self.state = WebSocketProtocol.STATE_OPEN
-
-      ## cancel any opening HS timer if present
-      ##
-      if self.openHandshakeTimeoutCall is not None:
-         if self.debugCodePaths:
-            log.msg("openHandshakeTimeoutCall.cancel")
-         self.openHandshakeTimeoutCall.cancel()
-         self.openHandshakeTimeoutCall = None
-
-      ## init state
-      ##
-      self.inside_message = False
-      if self.websocket_version != 0:
-         self.current_frame = None
-
-      ## fire handler on derived class
-      ##
-      self.onOpen()
-
-      ## process rest, if any
-      ##
-      if len(self.data) > 0:
-         self.consumeData()
+         ## process rest, if any
+         ##
+         if len(self.data) > 0:
+            self.consumeData()
+    
    def _processHandshake_failed(self, failure):
       """
+      Errback for Deferred returned by self.onConnect.
+      Generates a HTTP error response for the handshake.
       """
       self.pendingOnConnect = False
       e = failure.value
