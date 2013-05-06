@@ -225,7 +225,7 @@ static PyObject* XorMaskerSimple_process(XorMaskerSimple *self, PyObject *args)
     /* Store the updated instance variables */
     self->ptr = ptr;
     
-    return Py_BuildValue("O", py_data_out);
+    return py_data_out;
 }
 
 static PyMethodDef XorMaskerNull_methods[] =
