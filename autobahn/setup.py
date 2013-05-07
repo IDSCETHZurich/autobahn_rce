@@ -2,19 +2,20 @@
 # -*- coding: utf-8 -*-
 #
 #  setup.py
-#  
+#
 #  Copyright 2013 dominiquehunziker <dominique.hunziker@gmail.com>
-#  
+#  Copyright 2013 Dhananjay Sathe <dhananjaysathe@gmail.com>
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -23,7 +24,7 @@
 from setuptools import setup, Extension
 
 LONGSDESC = """
-Twisted-based WebSocket/WAMP client and server framework. 
+Twisted-based WebSocket/WAMP client and server framework.
 Modifeid and optimised for the RoboEarth Cloud Engine
 
 AutobahnPython provides a WebSocket (RFC6455, Hybi-10 to -17, Hixie-76)
@@ -40,7 +41,7 @@ More information:
 
 Source Code:
 
-   * https://github.com/dhananjaysathe/AutobahnPython
+   * https://github.com/IDSCETHZurich/autobahn_rce
 """
 
 ## get version string from "autobahn/_version.py"
@@ -69,7 +70,7 @@ setup (
    license = 'Apache License 2.0',
    author = 'Dhananjay Sathe',
    author_email = 'dhananjaysathe@gmail.com',
-   url = 'https://github.com/dhananjaysathe/AutobahnPython',
+   url = 'https://github.com/IDSCETHZurich/autobahn_rce',
    platforms = ('Any'),
    install_requires = ['setuptools', 'Twisted>=11.1'],
    packages = ['autobahn'],
