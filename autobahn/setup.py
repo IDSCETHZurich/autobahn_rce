@@ -85,5 +85,5 @@ setup (
                   "Programming Language :: Python",
                   "Topic :: Internet",
                   "Topic :: Software Development :: Libraries"],
-   keywords = 'autobahn rapyuta autobahn.ws websocket realtime rfc6455 wamp rpc pubsub'
+   keywords = 'autobahn robotics cloud roboearth rapyuta autobahn.ws websocket realtime rfc6455 wamp rpc pubsub'
 )

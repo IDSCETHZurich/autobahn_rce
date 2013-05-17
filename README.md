@@ -23,7 +23,7 @@ Dependencies
 ------------
 
 AutobahnPython is designed to work with [Python](http://www.python.org/) (latest versions of 2.6 or 2.7) and [PyPy](http://pypy.org/) (1.9 or later).
-Depends on [Numpy](http://www.numpy.org) , [Cython](http://www.cython.org) [Twisted](http://twistedmatrix.com) (11.1 or later) 
+Depends on [Twisted](http://twistedmatrix.com) (11.1 or later) 
 
 Where to go
 -----------

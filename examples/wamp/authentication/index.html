@@ -72,8 +72,11 @@
          function onConnect1() {
             session.authreq("foobar").then(function (challenge) {
 
+               // derive secret if salted WAMP-CRA
+               var secret = ab.deriveKey("secret", JSON.parse(challenge).authextra);
+
                // direct sign or AJAX to 3rd party
-               var signature = session.authsign(challenge, "secret");
+               var signature = session.authsign(challenge, secret);
 
                session.auth(signature).then(onAuth, ab.log);
             }, ab.log);
