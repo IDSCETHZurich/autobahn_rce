@@ -2872,6 +2872,8 @@ class WebSocketServerProtocol(WebSocketProtocol):
          # # or a pair (protocol, headers) or raise an HttpException
          # #
          protocol = maybeDeferred(self.onConnect, connectionRequest)
+         if self.websocket_version == 0:
+             key = key1, key2, key3
          protocol.addCallback(self._processHandshake_buildResponse, key)
          protocol.addErrback(self._processHandshake_failed)
 
