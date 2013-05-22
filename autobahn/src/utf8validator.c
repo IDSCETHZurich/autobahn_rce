@@ -1,24 +1,41 @@
 /*
- * utf8validator.c
- * 
- * Copyright 2013 Dominique Hunziker <dominique.hunziker@gmail.com>
- * Copyright 2013 Dhananjay Sathe <dhananjaysathe@gmail.com>
- * 
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA 02110-1301, USA.
+ *    xormasker.c
+ *
+ *    This file was originally created for RoboEearth
+ *    http://www.roboearth.org/
+ *
+ *    The research leading to these results has received funding from
+ *    the European Union Seventh Framework Programme FP7/2007-2013 under
+ *    grant agreement no248942 RoboEarth.
+ *
+ *    Copyright 2013 RoboEarth
+ *
+ *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    you may not use this file except in compliance with the License.
+ *    You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *    Unless required by applicable law or agreed to in writing, software
+ *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *    See the License for the specific language governing permissions and
+ *    limitations under the License.
+ *
+ *     \author/s: Dominique Hunziker, Dhananjay Sathe
+ *
+ *    Note:
+ *
+ *      This code is a CPython implementation of the algorithm
+ *
+ *      "Flexible and Economical UTF-8 Decoder"
+ *
+ *      by Bjoern Hoehrmann
+ *
+ *      bjoern@hoehrmann.de
+ *      http://bjoern.hoehrmann.de/utf-8/decoder/dfa/
  */
+
 
 #include <Python.h>
 #include <structmember.h>
@@ -26,7 +43,7 @@
 #define UTF8_ACCEPT 0
 #define UTF8_REJECT 1
 
-static const char UTF8VALIDATOR_DFA[] = {
+static const unsigned char UTF8VALIDATOR_DFA[] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
@@ -49,12 +66,14 @@ typedef struct
     PyObject_HEAD
     int i;
     int state;
+    int codepoint;
 } Utf8Validator;
 
 static PyMemberDef Utf8Validator_members[] =
 {
     {"i", T_INT, offsetof(Utf8Validator, i), 0, "Total index of validator."},
     {"state", T_INT, offsetof(Utf8Validator, state), 0, "State of validator."},
+    {"codepoint", T_INT, offsetof(Utf8Validator, codepoint), 0, "Decoded Unicode codepoint."},
     {NULL}
 };
 
@@ -63,6 +82,7 @@ static void reset(Utf8Validator *self)
 {
     self->i = 0;
     self->state = UTF8_ACCEPT;
+    self->codepoint = 0;
 }
 
 // Utf8Validator - tp_init
@@ -76,10 +96,10 @@ static int Utf8Validator_tp_init(Utf8Validator *self, PyObject *args, PyObject *
                      (int) PyTuple_GET_SIZE(args));
         return -1;
     }
-    
+
     /* Initialize the validator */
     reset(self);
-    
+
     return 0;
 }
 
@@ -99,11 +119,39 @@ static PyObject* Utf8Validator_reset(Utf8Validator *self, PyObject *args)
                      (int) PyTuple_GET_SIZE(args));
         return NULL;
     }
-    
+
     /* Reset the validator */
     reset(self);
-    
+
     Py_RETURN_NONE;
+}
+
+// Utf8Validator - decode
+static PyObject* Utf8Validator_decode(Utf8Validator *self, PyObject *args)
+{
+    /* Declarations */
+	unsigned int byte;
+	int state;
+
+    /* Parse input arguments */
+    if (!PyArg_ParseTuple(args, "I:decode", &byte))
+        return NULL;
+
+    /* Initialize local variables */
+	const unsigned int type = UTF8VALIDATOR_DFA[byte];
+	state = self->state;
+
+    /* Decode byte */
+	self->codepoint = (state != UTF8_ACCEPT) ?
+			(byte & 0x3fu) | (self->codepoint << 6) :
+			(0xff >> type) & (byte);
+	state = UTF8VALIDATOR_DFA[256 + state * 16 + type];
+
+    /* Store results of decoding step */
+	self->state = state;
+
+    /* Return the results */
+	return Py_BuildValue("i", state);
 }
 
 // Utf8Validator - validate
@@ -116,34 +164,34 @@ static PyObject* Utf8Validator_validate(Utf8Validator *self, PyObject *args)
     uint8_t *buf;
     Py_ssize_t buf_len;
     PyObject *py_buf;
-    
+
     /* Parse input arguments */
     if (!PyArg_ParseTuple(args, "O:validate", &py_buf))
         return NULL;
-    
+
     if (PyObject_AsReadBuffer(py_buf, (const void**) &buf, &buf_len))
         return NULL;
-    
+
     /* Initialize local variables */
     valid = 1;
     state = self->state;
-    
+
     /* Validate bytes */
     for (i = 0; i < (int) buf_len; ++i)
     {
         state = UTF8VALIDATOR_DFA[256 + (state << 4) + UTF8VALIDATOR_DFA[buf[i]]];
-        
+
         if (state == UTF8_REJECT)
         {
             valid = 0;
             break;
         }
     }
-    
+
     /* Store results of validation */
     self->i += i;
     self->state = state;
-    
+
     /* Return the results */
     return Py_BuildValue("OOii",
                          valid ? Py_True : Py_False,
@@ -167,6 +215,15 @@ the index within the currently consumed chunk, and totalIndex the\n\
 index within the total consumed sequence that was the point of bail out.\n\
 When valid? == True, currentIndex will be len(ba) and totalIndex the\n\
 total amount of consumed bytes."},
+	{"decode", (PyCFunction) Utf8Validator_decode, METH_VARARGS,
+	"Eat one UTF-8 octet, and validate on the fly.\n\
+\n\
+Returns UTF8_ACCEPT when enough octets have been consumed, in which case\n\
+self.codepoint contains the decoded Unicode code point.\n\
+\n\
+Returns UTF8_REJECT when invalid UTF-8 was encountered.\n\
+\n\
+Returns some other positive integer when more octets need to be eaten."},
     {NULL}
 };
 
@@ -225,25 +282,25 @@ PyMODINIT_FUNC initutf8validator(void)
 
     /* Declarations */
     PyObject *module;
-    
+
     /* Create the module */
     module = Py_InitModule3("utf8validator", NULL, "utf8validator module");
-    
+
     if (!module)
     {
         // TODO: Add some error message
         return;
     }
-    
+
     /* Fill in missing slots in type Utf8Validator */
     Utf8ValidatorType.tp_new = PyType_GenericNew;
-    
+
     if (PyType_Ready(&Utf8ValidatorType) < 0)
     {
         // TODO: Add some error message
         return;
     }
-    
+
     /* Add the type Utf8Validator to the module */
     Py_INCREF(&Utf8ValidatorType);
     PyModule_AddObject(module, "Utf8Validator", (PyObject*) &Utf8ValidatorType);
