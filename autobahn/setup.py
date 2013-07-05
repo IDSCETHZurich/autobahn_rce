@@ -25,7 +25,7 @@ from setuptools import setup, Extension
 
 LONGSDESC = """
 Twisted-based WebSocket/WAMP client and server framework.
-Modifeid and optimised for the RoboEarth Cloud Engine
+Modified and optimised for the RoboEarth Cloud Engine
 
 AutobahnPython provides a WebSocket (RFC6455, Hybi-10 to -17, Hixie-76)
 framework for creating WebSocket-based clients and servers.
