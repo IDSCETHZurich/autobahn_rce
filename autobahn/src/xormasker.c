@@ -48,211 +48,230 @@ typedef struct
 // XorMaskerNull - tp_init
 static int XorMaskerNull_tp_init(XorMaskerNull *self, PyObject *args, PyObject *kwargs)
 {
-    /* Declarations */
-    int num_args;
-    
     /* Check if there is at most 1 argument given */
-    num_args = PyTuple_GET_SIZE(args);
-    
+    int num_args = PyTuple_Size(args);
+
     if (kwargs && PyDict_Check(kwargs))
         num_args += PyDict_Size(kwargs);
-    
+
     if (num_args > 1)
     {
         PyErr_Format(PyExc_TypeError,
-                     "XorMaskerNull.__init__() takes at most 1 parameter (%d given)",
+                     "XorMaskerNull.__init__() takes at most 1 argument (%d given)",
                      num_args);
         return -1;
     }
-    
+
     /* Initialize the xor masker */
     self->ptr = 0;
-    
+
     return 0;
 }
 
 // XorMaskerSimple - tp_init
 static int XorMaskerSimple_tp_init(XorMaskerSimple *self, PyObject *args, PyObject *kwargs)
 {
-    /* Declarations */
-    int i;
+    /* Extract the argument */
     char *mask;
     Py_ssize_t mask_size;
-    
-    /* Extract the argument */
+
     if (!PyArg_ParseTuple(args, "s#:__init__", &mask, &mask_size))
         return -1;
-    
+
     /* Verify the argument */
     if ((int) mask_size != 4)
     {
         PyErr_SetString(PyExc_TypeError, "Mask has to be of length 4.");
         return -1;
     }
-    
+
     /* Parse the mask */
-    for (i = 0; i < 4; ++i)
-        self->mask[i] = mask[i];
-    
+    int i = 0;
+
+    for (; i < 4; ++i)
+        self->mask[i] = (uint8_t) mask[i];
+
     /* Initialize the xor masker */
     self->ptr = 0;
-    
+
     return 0;
 }
 
 // XorMaskerNull - tp_dealloc
 static void XorMaskerNull_tp_dealloc(XorMaskerNull *self)
 {
-    self->ob_type->tp_free((PyObject*)self);
+    self->ob_type->tp_free((PyObject*) self);
 }
 
 // XorMaskerSimple - tp_dealloc
 static void XorMaskerSimple_tp_dealloc(XorMaskerSimple *self)
 {
-    self->ob_type->tp_free((PyObject*)self);
+    self->ob_type->tp_free((PyObject*) self);
 }
 
 // XorMaskerNull - pointer
 static PyObject* XorMaskerNull_pointer(XorMaskerNull *self, PyObject *args)
 {
-    if (PyTuple_GET_SIZE(args))
+    if (PyTuple_Size(args))
     {
         PyErr_Format(PyExc_TypeError,
-                     "XorMaskerNull.pointer() takes no parameters (%d given)",
+                     "XorMaskerNull.pointer() takes no arguments (%d given)",
                      (int) PyTuple_GET_SIZE(args));
         return NULL;
     }
-    
+
     return Py_BuildValue("i", self->ptr);
 }
 
 // XorMaskerSimple - pointer
 static PyObject* XorMaskerSimple_pointer(XorMaskerSimple *self, PyObject *args)
 {
-    if (PyTuple_GET_SIZE(args))
+    if (PyTuple_Size(args))
     {
         PyErr_Format(PyExc_TypeError,
-                     "XorMaskerSimple.pointer() takes no parameters (%d given)",
+                     "XorMaskerSimple.pointer() takes no arguments (%d given)",
                      (int) PyTuple_GET_SIZE(args));
         return NULL;
     }
-    
+
     return Py_BuildValue("i", self->ptr);
 }
 
 // XorMaskerNull - reset
 static PyObject* XorMaskerNull_reset(XorMaskerNull *self, PyObject *args)
 {
-    if (PyTuple_GET_SIZE(args))
+    if (PyTuple_Size(args))
     {
         PyErr_Format(PyExc_TypeError,
-                     "XorMaskerNull.reset() takes no parameters (%d given)",
+                     "XorMaskerNull.reset() takes no arguments (%d given)",
                      (int) PyTuple_GET_SIZE(args));
         return NULL;
     }
-    
+
     self->ptr = 0;
-    
+
     Py_RETURN_NONE;
 }
 
 // XorMaskerSimple - reset
 static PyObject* XorMaskerSimple_reset(XorMaskerSimple *self, PyObject *args)
 {
-    if (PyTuple_GET_SIZE(args))
+    if (PyTuple_Size(args))
     {
         PyErr_Format(PyExc_TypeError,
-                     "XorMaskerSimple.reset() takes no parameters (%d given)",
+                     "XorMaskerSimple.reset() takes no arguments (%d given)",
                      (int) PyTuple_GET_SIZE(args));
         return NULL;
     }
-    
+
     self->ptr = 0;
-    
+
     Py_RETURN_NONE;
 }
 
 // XorMaskerNull - process
 static PyObject* XorMaskerNull_process(XorMaskerNull *self, PyObject *args)
 {
-    /* Declarations */
-    PyObject *data;
-    
     /* Extract the argument */
+    PyObject *data;
+
     if (!PyArg_ParseTuple(args, "O:process", &data))
         return NULL;
-    
+
     if (!PyString_Check(data))
     {
         PyErr_SetString(PyExc_TypeError, "data has to be of type string");
         return NULL;
     }
-    
+
     /* Process the data */
-    self->ptr += PyString_GET_SIZE(data);
-    
+    self->ptr += PyString_Size(data);
+
     return Py_BuildValue("O", data);
 }
 
 // XorMaskerSimple - process
 static PyObject* XorMaskerSimple_process(XorMaskerSimple *self, PyObject *args)
 {
-    /* Declarations */
-    int i;
-    Py_ssize_t data_size;
-    char *data_in;
-    char *data_out;
-    PyObject *py_data_out;
-    
-    /* Local references for instance variables */
-    int ptr = self->ptr;
+    /* Local references for member variables */
+    const int ptr = self->ptr;
     const uint8_t* const mask = self->mask;
-    
+
     /* Extract the argument */
-    if (!PyArg_ParseTuple(args, "s#:process", &data_in, &data_size))
+    PyObject *data;
+
+    if (!PyArg_ParseTuple(args, "O:process", &data))
         return NULL;
-    
+
+    if (!PyString_Check(data))
+    {
+        PyErr_SetString(PyExc_TypeError, "data has to be of type string");
+        return NULL;
+    }
+
+    const Py_ssize_t data_size = PyString_Size(data);
+    const uint8_t* const data_in = (uint8_t*) PyString_AsString(data);
+    if (!data_in)
+        return NULL;
+
     /* Prepare container for return value */
-    py_data_out = PyString_FromStringAndSize(NULL, (int) data_size);
-    if (!py_data_out)
+    data = PyString_FromStringAndSize(NULL, (int) data_size);
+    if (!data)
     {
         PyErr_SetString(XorMaskerException, "Could not allocate output string.");
         return NULL;
     }
-    
-    data_out = PyString_AsString(py_data_out);
+
+    uint8_t* const data_out = (uint8_t*) PyString_AsString(data);
     if (!data_out)
         return NULL;
-    
+
     /* Process the data */
-    for (i = 0; i < (int) data_size; ++i)
-        data_out[i] = data_in[i] ^ mask[ptr++ & 3]; // == ptr++ % 4
-    
-    /* Store the updated instance variables */
-    self->ptr = ptr;
-    
-    return py_data_out;
+    int i = 0;
+    int j;
+
+    if (ptr & 3)
+    {
+        for (j = ptr & 3; i < 4 - (ptr & 3); ++i, ++j)
+            data_out[i] = data_in[i] ^ mask[j];
+    }
+
+    for (; i < 4 * (((int) data_size) / 4); i += 4)
+    {
+        data_out[i] = data_in[i] ^ mask[0];
+        data_out[i + 1] = data_in[i + 1] ^ mask[1];
+        data_out[i + 2] = data_in[i + 2] ^ mask[2];
+        data_out[i + 3] = data_in[i + 3] ^ mask[3];
+    }
+
+    for (j = 0; i < (int) data_size; ++i, ++j)
+        data_out[i] = data_in[i] ^ mask[j];
+
+    /* Store the updated member variable */
+    self->ptr += (int) data_size;
+
+    return data;
 }
 
 static PyMethodDef XorMaskerNull_methods[] =
 {
     {"pointer", (PyCFunction) XorMaskerNull_pointer, METH_VARARGS,
-    "Get the current count of the mask pointer."},
+     "Get the current count of the mask pointer."},
     {"reset", (PyCFunction) XorMaskerNull_reset, METH_VARARGS,
-    "Reset the mask pointer."},
+     "Reset the mask pointer."},
     {"process", (PyCFunction) XorMaskerNull_process, METH_VARARGS,
-    "Process the data by applying the bit mask."},
+     "Process the data by applying the bit mask."},
     {NULL}
 };
 
 static PyMethodDef XorMaskerSimple_methods[] =
 {
     {"pointer", (PyCFunction) XorMaskerSimple_pointer, METH_VARARGS,
-    "Get the current count of the mask pointer."},
+     "Get the current count of the mask pointer."},
     {"reset", (PyCFunction) XorMaskerSimple_reset, METH_VARARGS,
-    "Reset the mask pointer."},
+     "Reset the mask pointer."},
     {"process", (PyCFunction) XorMaskerSimple_process, METH_VARARGS,
-    "Process the data by applying the bit mask."},
+     "Process the data by applying the bit mask."},
     {NULL}
 };
 
@@ -345,21 +364,20 @@ static PyTypeObject XorMaskerSimpleType =
 // module method createXorMasker
 static PyObject* createXorMasker(PyObject *module, PyObject *args)
 {
-    /* Declarations */
-    int len;
-    PyObject *mask;
-    
     /* Extract the arguments */
+    PyObject *mask;
+    int len;
+
     if (!PyArg_ParseTuple(args, "O|i", &mask, &len))
         return NULL;
-    
+
     return PyObject_CallFunctionObjArgs((PyObject *) &XorMaskerSimpleType, mask, NULL);
 }
 
 static PyMethodDef utf8validator_methods[] =
 {
     {"createXorMasker", createXorMasker, METH_VARARGS,
-    "Create a new xormasker using provided mask."},
+     "Create a new xormasker using provided mask."},
     {NULL}
 };
 
@@ -370,43 +388,40 @@ PyMODINIT_FUNC initxormasker(void)
     PyEval_InitThreads();
 #endif
 
-    /* Declarations */
-    PyObject *module;
-    
     /* Create the module */
-    module = Py_InitModule3("xormasker", utf8validator_methods, "xormasker module");
-    
+    PyObject *module = Py_InitModule3("xormasker", utf8validator_methods, "xormasker module");
+
     if (!module)
     {
         // TODO: Add some error message
         return;
     }
-    
+
     /* Register the Exception used in the module */
     XorMaskerException = PyErr_NewException("autobahn.xormasker.XorMaskerException", NULL, NULL);
-    
+
     /* Fill in missing slots in type XorMaskerNullType */
     XorMaskerNullType.tp_new = PyType_GenericNew;
-    
+
     if (PyType_Ready(&XorMaskerNullType) < 0)
     {
         // TODO: Add some error message
         return;
     }
-    
+
     /* Add the type XorMaskerNullType to the module */
     Py_INCREF(&XorMaskerNullType);
     PyModule_AddObject(module, "XorMaskerNull", (PyObject*) &XorMaskerNullType);
-    
+
     /* Fill in missing slots in type XorMaskerSimpleType */
     XorMaskerSimpleType.tp_new = PyType_GenericNew;
-    
+
     if (PyType_Ready(&XorMaskerSimpleType) < 0)
     {
         // TODO: Add some error message
         return;
     }
-    
+
     /* Add the type XorMaskerSimpleType to the module */
     Py_INCREF(&XorMaskerSimpleType);
     PyModule_AddObject(module, "XorMaskerSimple", (PyObject*) &XorMaskerSimpleType);
